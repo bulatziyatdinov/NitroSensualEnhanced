@@ -1,5 +1,4 @@
-pythonnet
-elevate
-pywin32 
-PyQt5
-json
+elevate>=0.1.3
+PyQt5>=5.15.11
+pythonnet>=3.1.0
+pywin32>=312

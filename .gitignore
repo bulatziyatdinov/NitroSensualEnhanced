@@ -1,6 +1,25 @@
-app_icon.ico
-config.json
-todo.log
+.git
+
+# venvs
+.env/
+.venv/
+env/
+venv/
+
+# IDE PyCharm and VS Code stuff
+__pycache__/
+.idea/
+.vscode
+
+# PyInstaller
 build/
 dist/
-shit/
+*.manifest
+*.spec
+
+# Project files
+trash/
+
+config.json
+app_icon.ico
+todo.log

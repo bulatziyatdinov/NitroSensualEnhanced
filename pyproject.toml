@@ -1,0 +1,21 @@
+[project]
+name = "nitrosensualenhanced"
+version = "0.1.0"
+description = "Fan control utility for Acer Nitro and probably Predator series gaming laptops"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "elevate>=0.1.3",
+    "pyqt5>=5.15.11",
+    "pywin32>=312",
+]
+
+[tool.uv]
+required-environments = [
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.16",
+]

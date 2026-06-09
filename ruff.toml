@@ -1,0 +1,38 @@
+target-version = "py312"
+line-length = 88
+
+extend-exclude = [
+    ".env",
+    ".venv",
+    "env",
+    ".venv",
+    "build",
+    "dist",
+    "resources",
+    "trash",
+]
+
+[lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # Pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    #"COM",  # flake8-commas
+    "B",    # flake8-bugbear
+    "A",    # flake8-builtins
+    "RUF",  # ruff
+]
+
+
+ignore = [
+    #"E501",
+]
+
+#[lint.per-file-ignores]
+#"tests/**/*.py" = ["S101"]
+
+[format]
+quote-style = "single"
+indent-style = "space"
+docstring-code-format = true
