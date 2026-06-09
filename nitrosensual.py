@@ -1,117 +1,35 @@
-from PyQt5.QtWidgets import (
-    QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout,
-    QSlider, QPushButton, QGroupBox, QDialog, QComboBox, QSpinBox, QScrollArea, QSizePolicy
-)
-from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal, QRect, QPoint, QSize
-from PyQt5.QtGui import QPainter, QColor
-from elevate import elevate
-import pywintypes
-import win32file
-import winreg
-import struct
-import json
-import sys
 import os
 
-LHM_DLL_PATH = None
+from PyQt5.QtCore import QPoint, QRect, QSize, Qt, QThread, QTimer, pyqtSignal
+from PyQt5.QtGui import QColor, QPainter
+from PyQt5.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSlider,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
+)
 
-elevate()
-
-def get_app_dir():
-    if getattr(sys, 'frozen', False):
-        return os.path.dirname(sys.executable)
-    else:
-        return os.path.dirname(os.path.abspath(__file__))
+from utils import (
+    apply_fan_speed,
+    get_app_dir,
+    get_cpu_gpu_temp_and_rpm,
+    load_config,
+    read_fan_speed,
+    save_config,
+    write_fan_speed,
+)
 
 APP_DIR = get_app_dir()
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 
-DEFAULT_CONFIG = {
-    "auto_fan_config": [
-        {"min": 0, "max": 39, "speed": 0},
-        {"min": 40, "max": 49, "speed": 20},
-        {"min": 50, "max": 59, "speed": 35},
-        {"min": 60, "max": 69, "speed": 50},
-        {"min": 70, "max": 79, "speed": 70},
-        {"min": 80, "max": 89, "speed": 85},
-        {"min": 90, "max": 100, "speed": 100},
-    ],
-    "mode": "Custom",
-    "custom_cpu": 50,
-    "custom_gpu": 50,
-}
-
-def load_config():
-    if not os.path.exists(CONFIG_FILE):
-        save_config(DEFAULT_CONFIG)
-        return DEFAULT_CONFIG.copy()
-    try:
-        with open(CONFIG_FILE, "r") as f:
-            data = json.load(f)
-        for k, v in DEFAULT_CONFIG.items():
-            if k not in data:
-                data[k] = v
-        return data
-    except Exception:
-        save_config(DEFAULT_CONFIG)
-        return DEFAULT_CONFIG.copy()
-
-def save_config(config):
-    try:
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(config, f, indent=2)
-    except Exception as e:
-        print("Failed to save config:", e)
-
-# Helper to read current fan percentage from registry
-def read_fan_percentage(fan_type: str) -> int:
-    key_path = r"SOFTWARE\\OEM\\NitroSense\\FanControl"
-    value_name = "CPUFanPercentage" if fan_type == "cpu" else "GPU1FanPercentage"
-    try:
-        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
-            value, _ = winreg.QueryValueEx(key, value_name)
-            return int(value)
-    except Exception:
-        return -1  # Could not read
-
-# Helper to write fan percentage to registry
-def write_registry(fan_type: str, percent: int):
-    key_path = r"SOFTWARE\\OEM\\NitroSense\\FanControl"
-    value_name = "CPUFanPercentage" if fan_type == "cpu" else "GPU1FanPercentage"
-    with winreg.CreateKeyEx(winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_SET_VALUE | winreg.KEY_WOW64_64KEY) as key:
-        winreg.SetValueEx(key, value_name, 0, winreg.REG_DWORD, percent)
-
-# Helper to apply fan speed via named pipe
-def apply_fan_speed(fan_type: str, percent: int):
-    fan_group_type = 1 if fan_type == "cpu" else 4
-    data = (percent << 8) | fan_group_type
-    packet = struct.pack("<HBIQ", 16, 1, 8, data)
-    try:
-        handle = win32file.CreateFile(
-            r"\\.\pipe\PredatorSense_service_namedpipe",
-            win32file.GENERIC_READ | win32file.GENERIC_WRITE,
-            0,
-            None,
-            win32file.OPEN_EXISTING,
-            0,
-            None
-        )
-        win32file.WriteFile(handle, packet)
-        resp = win32file.ReadFile(handle, 9)[1]
-        win32file.CloseHandle(handle)
-        return True, resp.hex()
-    except Exception as e:
-        return False, str(e)
-
-def unblock_file_if_needed(filepath):
-    # Unblock file if it has a zone identifier (Windows only)
-    if os.name == 'nt' and os.path.exists(filepath):
-        ads = filepath + ":Zone.Identifier"
-        if os.path.exists(ads):
-            try:
-                os.remove(ads)
-            except Exception as e:
-                print(f"Could not remove Zone.Identifier: {e}")
 
 class ProgressDialog(QDialog):
     def __init__(self, message):
@@ -125,57 +43,6 @@ class ProgressDialog(QDialog):
         self.setLayout(layout)
         self.setFixedSize(350, 80)
 
-SYSTEM_HEALTH_INDEXES = {
-    1: "CPU_Temperature",
-    2: "CPU_Fan_Speed",
-    6: "GPU_Fan_Speed",
-    10: "GPU1_Temperature",
-}
-
-def send_command_by_named_pipe(pipe, cmd_code: int, args: list):
-    message = bytearray()
-    message += struct.pack("<H", cmd_code)
-    message += struct.pack("<B", len(args))
-    for arg in args:
-        message += struct.pack("<I", len(arg))
-        message += arg
-    win32file.WriteFile(pipe, message)
-    win32file.FlushFileBuffers(pipe)
-
-def get_acer_gaming_system_info(index: int):
-    input_code = 1 | (index << 8)
-    arg = struct.pack("<I", input_code)
-    try:
-        pipe = win32file.CreateFile(
-            r"\\.\pipe\PredatorSense_service_namedpipe",
-            win32file.GENERIC_READ | win32file.GENERIC_WRITE,
-            0, None, win32file.OPEN_EXISTING, 0, None
-        )
-        send_command_by_named_pipe(pipe, 13, [arg])
-        _, raw = win32file.ReadFile(pipe, 13)
-        result = struct.unpack_from("<Q", raw, 5)[0]
-        win32file.CloseHandle(pipe)
-        return result
-    except (pywintypes.error, Exception):
-        return None
-
-def decode_result(result):
-    if result is None:
-        return None
-    if result & 0xFF == 0:
-        return (result >> 8) & 0xFFFF
-    return None
-
-def get_cpu_gpu_temp_and_rpm():
-    cpu_temp_raw = get_acer_gaming_system_info(1)
-    cpu_rpm_raw = get_acer_gaming_system_info(2)
-    gpu_temp_raw = get_acer_gaming_system_info(10)
-    gpu_rpm_raw = get_acer_gaming_system_info(6)
-    cpu_temp = decode_result(cpu_temp_raw)
-    cpu_rpm = decode_result(cpu_rpm_raw)
-    gpu_temp = decode_result(gpu_temp_raw)
-    gpu_rpm = decode_result(gpu_rpm_raw)
-    return cpu_temp, cpu_rpm, gpu_temp, gpu_rpm
 
 class FanControlWidget(QWidget):
     def __init__(self, fan_type: str, refresh_callback=None):
@@ -190,7 +57,7 @@ class FanControlWidget(QWidget):
         self.label = QLabel(f"{self.fan_type.upper()} Fan Speed:")
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setRange(0, 100)
-        self.slider.setValue(read_fan_percentage(self.fan_type))
+        self.slider.setValue(read_fan_speed(self.fan_type))
         self.value_label = QLabel(f"{self.slider.value()}%")
         self.slider.valueChanged.connect(self.on_slider_changed)
         self.apply_btn = QPushButton("Apply")
@@ -229,7 +96,7 @@ class FanControlWidget(QWidget):
     def apply_fan_speed(self):
         percent = self.slider.value()
         try:
-            write_registry(self.fan_type, percent)
+            write_fan_speed(self.fan_type, percent)
             apply_fan_speed(self.fan_type, percent)
             if self.refresh_callback:
                 self.refresh_callback()
@@ -242,19 +109,20 @@ class FanControlWidget(QWidget):
                     main.config["custom_cpu"] = percent
                 elif self.fan_type == "gpu":
                     main.config["custom_gpu"] = percent
-                save_config(main.config)
+                save_config(main.config, CONFIG_FILE)
         except Exception:
             pass
 
     def apply_fan_speed_direct(self, percent):
         """Set fan speed without changing slider or last_custom_value."""
         try:
-            write_registry(self.fan_type, percent)
+            write_fan_speed(self.fan_type, percent)
             apply_fan_speed(self.fan_type, percent)
             if self.refresh_callback:
                 self.refresh_callback()
         except Exception:
             pass
+
 
 class RangeSlider(QSlider):
     rangeChanged = pyqtSignal(int, int)
@@ -295,7 +163,10 @@ class RangeSlider(QSlider):
         self.setHigh(high)
 
     def mousePressEvent(self, event):
-        pos = event.pos().x() if self.orientation() == Qt.Horizontal else event.pos().y()
+        if self.orientation() == Qt.Horizontal:
+            pos = event.pos().x()
+        else:
+            pos = event.pos().y()
         low_pos = self._value_to_pos(self._low)
         high_pos = self._value_to_pos(self._high)
         if abs(pos - low_pos) < 12:
@@ -308,7 +179,11 @@ class RangeSlider(QSlider):
     def mouseMoveEvent(self, event):
         if self._drag is None:
             return
-        pos = event.pos().x() if self.orientation() == Qt.Horizontal else event.pos().y()
+        pos = event.pos()
+        if self.orientation() == Qt.Horizontal:
+            pos = event.pos().x()
+        else:
+            pos = event.pos().y()
         value = self._pos_to_value(pos)
         if self._drag == 'low':
             self.setLow(value)
@@ -332,7 +207,10 @@ class RangeSlider(QSlider):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        groove_rect = QRect(self.PADDING, self.height() // 2 - 3, self.width() - 2 * self.PADDING, 6)
+        groove_rect = QRect(
+            self.PADDING, self.height() // 2 - 3,
+            self.width() - 2 * self.PADDING, 6
+        )
         painter.setPen(Qt.NoPen)
         painter.setBrush(QColor(200, 200, 200))
         painter.drawRect(groove_rect)
@@ -341,7 +219,8 @@ class RangeSlider(QSlider):
         sel_rect = QRect(low_pos, self.height() // 2 - 5, high_pos - low_pos, 10)
         painter.setBrush(QColor(100, 180, 255, 180))
         painter.drawRect(sel_rect)
-        for value, color in [(self._low, QColor(50, 120, 255)), (self._high, QColor(255, 80, 80))]:
+        for value, color in [(self._low, QColor(50, 120, 255)),
+                             (self._high, QColor(255, 80, 80))]:
             pos = self._value_to_pos(value)
             painter.setPen(Qt.black)
             painter.setBrush(color)
@@ -349,6 +228,7 @@ class RangeSlider(QSlider):
 
     def sizeHint(self):
         return QSize(200, 32)
+
 
 class RangeSliderWidget(QWidget):
     def __init__(self, min_temp, max_temp, speed, min_limit, max_limit, parent=None):
@@ -389,7 +269,7 @@ class RangeSliderWidget(QWidget):
         self.label.setText(self._label_text())
 
     def _label_text(self):
-        return f"{self.min_slider.low()}–{self.max_slider.high()}°C"
+        return f"{self.min_slider.low()}-{self.max_slider.high()}°C"
 
     def get_values(self):
         return {
@@ -398,8 +278,10 @@ class RangeSliderWidget(QWidget):
             "speed": self.speed_spin.value()
         }
 
+
 class TempWorker(QThread):
-    temps_updated = pyqtSignal(object, object, object, object)  # cpu_temp, cpu_rpm, gpu_temp, gpu_rpm
+    # pyqtSignal args:          cpu_temp, cpu_rpm, gpu_temp, gpu_rpm
+    temps_updated = pyqtSignal(object, object, object, object)
 
     def __init__(self, poll_interval=2):
         super().__init__()
@@ -415,6 +297,7 @@ class TempWorker(QThread):
 
     def stop(self):
         self._running = False
+
 
 class AutoFanConfigDialog(QDialog):
     configChanged = pyqtSignal(list)
@@ -592,7 +475,7 @@ class AutoFanConfigDialog(QDialog):
         update_remove_buttons()
 
     def renormalize_ranges(self):
-        """Ensure all ranges are contiguous, min=0, max=100, and at least 1 unit wide."""
+        """Ensure all ranges are contiguous, min=0, max=100 and at least 1 unit wide."""
         n = len(self.rows)
         if n == 0:
             self.emit_config()
@@ -610,7 +493,7 @@ class AutoFanConfigDialog(QDialog):
         # Scale widths to fit exactly 101 units
         if total_width != available:
             scale = available / total_width
-            widths = [max(1, int(round(w * scale))) for w in widths]
+            widths = [max(1, round(w * scale)) for w in widths]
             # Fix rounding errors
             while sum(widths) > available:
                 for i in range(len(widths)):
@@ -632,7 +515,8 @@ class AutoFanConfigDialog(QDialog):
         self.emit_config()
 
     def push_neighbors(self, idx, low, high):
-        # Enforce: first min is 0, last max is 100, and min < max for all, and no gaps, and at least 1 unit wide
+        # Enforce: first min is 0, last max is 100, and min < max for all, and no gaps,
+        # and at least 1 unit wide
         # Push right neighbor if overlap or gap
         if idx < len(self.rows) - 1:
             next_slider = self.rows[idx+1]["slider"]
@@ -685,15 +569,16 @@ class AutoFanConfigDialog(QDialog):
     def emit_config(self):
         self.configChanged.emit(self.get_config())
 
+
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.config = load_config()
+        self.config = load_config(CONFIG_FILE)
         self.cpu_temp = None
         self.cpu_rpm = None
         self.gpu_temp = None
         self.gpu_rpm = None
-        self.auto_fan_config = self.config.get("auto_fan_config", DEFAULT_CONFIG["auto_fan_config"])
+        self.auto_fan_config = self.config["auto_fan_config"]
         self.current_mode = self.config.get("mode", "Custom")
         self.init_ui()
         self.start_temp_worker()
@@ -731,21 +616,24 @@ class MainWindow(QWidget):
         self.layout.addWidget(self.gpu_speed_label)
 
         notice = QLabel(
-            '<b>Notice:</b> Please enable <span style="color:red">"Custom"</span> mode in NitroSense for fan control to work!'
+            '<b>Notice:</b> Please enable <span style="color:red">"Custom"</span> '
+            'mode in NitroSense for fan control to work!'
         )
         notice.setWordWrap(True)
         self.layout.addWidget(notice)
 
         cpu_group = QGroupBox("CPU Fan")
         cpu_layout = QVBoxLayout()
-        self.cpu_fan_widget = FanControlWidget("cpu", refresh_callback=self.refresh_speeds)
+        self.cpu_fan_widget = FanControlWidget(
+            "cpu", refresh_callback=self.refresh_speeds)
         cpu_layout.addWidget(self.cpu_fan_widget)
         cpu_group.setLayout(cpu_layout)
         self.layout.addWidget(cpu_group)
 
         gpu_group = QGroupBox("GPU Fan")
         gpu_layout = QVBoxLayout()
-        self.gpu_fan_widget = FanControlWidget("gpu", refresh_callback=self.refresh_speeds)
+        self.gpu_fan_widget = FanControlWidget(
+            "gpu", refresh_callback=self.refresh_speeds)
         gpu_layout.addWidget(self.gpu_fan_widget)
         gpu_group.setLayout(gpu_layout)
         self.layout.addWidget(gpu_group)
@@ -782,8 +670,10 @@ class MainWindow(QWidget):
             self.apply_auto_fan_speeds()
 
     def update_temp_labels(self):
-        cpu_temp_text = f"CPU Temp: {self.cpu_temp if self.cpu_temp is not None else '?'}°C"
-        gpu_temp_text = f"GPU Temp: {self.gpu_temp if self.gpu_temp is not None else '?'}°C"
+        cpu_temp_text = (f"CPU Temp: "
+                         f"{self.cpu_temp if self.cpu_temp is not None else '?'}°C")
+        gpu_temp_text = (f"GPU Temp: "
+                         f"{self.gpu_temp if self.gpu_temp is not None else '?'}°C")
         self.cpu_temp_label.setText(cpu_temp_text)
         self.gpu_temp_label.setText(gpu_temp_text)
 
@@ -810,19 +700,21 @@ class MainWindow(QWidget):
         save_config(self.config)
 
     def refresh_speeds(self):
-        cpu_percent = read_fan_percentage("cpu")
-        gpu_percent = read_fan_percentage("gpu")
+        cpu_percent = read_fan_speed("cpu")
+        gpu_percent = read_fan_speed("gpu")
         cpu_rpm = self.cpu_rpm if self.cpu_rpm is not None else '?'
         gpu_rpm = self.gpu_rpm if self.gpu_rpm is not None else '?'
-        cpu_text = f"CPU Fan Current Speed: {cpu_percent if cpu_percent >= 0 else '?'}% ({cpu_rpm} RPM)"
-        gpu_text = f"GPU Fan Current Speed: {gpu_percent if gpu_percent >= 0 else '?'}% ({gpu_rpm} RPM)"
+        cpu_text = (f"CPU Fan Current Speed: "
+                    f"{cpu_percent if cpu_percent >= 0 else '?'}% ({cpu_rpm} RPM)")
+        gpu_text = (f"GPU Fan Current Speed: "
+                    f"{gpu_percent if gpu_percent >= 0 else '?'}% ({gpu_rpm} RPM)")
         self.cpu_speed_label.setText(cpu_text)
         self.gpu_speed_label.setText(gpu_text)
 
     def open_auto_config(self):
         # Backup current config for possible revert
         backup_config = [dict(x) for x in self.auto_fan_config]
-        dialog = AutoFanConfigDialog(self, config=[dict(x) for x in self.auto_fan_config])
+        dialog = AutoFanConfigDialog(self, [dict(x) for x in self.auto_fan_config])
         dialog.configChanged.connect(self.on_auto_config_live_update)
         result = dialog.exec_()
         if result:  # Save pressed
@@ -841,8 +733,8 @@ class MainWindow(QWidget):
 
     def closeEvent(self, event):
         # Reload config from disk to discard unsaved in-memory changes
-        self.config = load_config()
-        self.auto_fan_config = self.config.get("auto_fan_config", DEFAULT_CONFIG["auto_fan_config"])
+        self.config = load_config(CONFIG_FILE)
+        self.auto_fan_config = self.config["auto_fan_config"]
         self.current_mode = self.config.get("mode", "Custom")
         # Optionally, reset UI to match config (not strictly needed on close)
         if hasattr(self, 'temp_worker'):
@@ -883,11 +775,11 @@ class MainWindow(QWidget):
         self.cpu_fan_widget.apply_fan_speed_direct(cpu_speed)
         self.gpu_fan_widget.apply_fan_speed_direct(gpu_speed)
 
-def main():
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec_())
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     from PyQt5.QtWidgets import QApplication
+#
+#     app = QApplication(sys.argv)
+#     window = MainWindow()
+#     window.show()
+    #     sys.exit(app.exec_())

@@ -17,16 +17,29 @@ select = [
     "E",    # pycodestyle errors
     "F",    # Pyflakes
     "I",    # isort
-    "UP",   # pyupgrade
+    #"UP",   # pyupgrade
     #"COM",  # flake8-commas
     "B",    # flake8-bugbear
     "A",    # flake8-builtins
     "RUF",  # ruff
 ]
 
-
 ignore = [
     #"E501",
+]
+
+preview = true
+explicit-preview-rules = true
+extend-select = [
+    "E302", # Ожидать 2 пустые строки перед определением функции или класса
+    "E305", # Ожидать 2 пустые строки после определения функции или класса
+]
+
+
+
+[lint.isort]
+known-first-party = [
+    "nitrosensual",
 ]
 
 #[lint.per-file-ignores]
@@ -36,3 +49,4 @@ ignore = [
 quote-style = "single"
 indent-style = "space"
 docstring-code-format = true
+#preview = true
