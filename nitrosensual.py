@@ -1,18 +1,22 @@
 import os
 
 from PyQt5.QtCore import QPoint, QRect, QSize, Qt, QThread, QTimer, pyqtSignal
-from PyQt5.QtGui import QColor, QPainter
+from PyQt5.QtGui import QColor, QIcon, QPainter
 from PyQt5.QtWidgets import (
+    QAction,
+    QActionGroup,
     QComboBox,
     QDialog,
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QMenu,
     QPushButton,
     QScrollArea,
     QSizePolicy,
     QSlider,
     QSpinBox,
+    QSystemTrayIcon,
     QVBoxLayout,
     QWidget,
 )
@@ -580,7 +584,9 @@ class MainWindow(QWidget):
         self.gpu_rpm = None
         self.auto_fan_config = self.config["auto_fan_config"]
         self.current_mode = self.config.get("mode", "Custom")
+        
         self.init_ui()
+        
         self.start_temp_worker()
 
     def init_ui(self):
@@ -641,6 +647,7 @@ class MainWindow(QWidget):
         self.setLayout(self.layout)
         self.resize(400, 200)
 
+        # TODO: check this timer code later
         # Timer for refreshing current speeds and temperature
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.refresh_speeds)
@@ -652,8 +659,95 @@ class MainWindow(QWidget):
         if idx != -1:
             self.mode_combo.setCurrentIndex(idx)
         # Set custom slider values
-        self.cpu_fan_widget.slider.setValue(self.config.get("custom_cpu", 50))
-        self.gpu_fan_widget.slider.setValue(self.config.get("custom_gpu", 50))
+        self.cpu_fan_widget.slider.setValue(self.config.get('custom_cpu', 50))
+        self.gpu_fan_widget.slider.setValue(self.config.get('custom_gpu', 50))
+
+        self.init_tray()
+
+    def init_tray(self):
+        self.tray = QSystemTrayIcon(self)
+        self.tray.setVisible(True)
+        self.tray.setIcon(QIcon('resources/star.png'))
+        self.tray.activated.connect(self.tray_activation_handler)
+
+        tray_menu = QMenu()
+
+        fan_off_action = QAction("Fan OFF", tray_menu)
+        fan_off_action.triggered.connect(lambda: self.fan_action_handler('Custom', 0))
+        fan_auto_action = QAction("Fan Auto", tray_menu)
+        fan_auto_action.triggered.connect(lambda: self.fan_action_handler('Auto'))
+        fan_max_action = QAction("Fan MAX", tray_menu)
+        fan_max_action.triggered.connect(lambda: self.fan_action_handler('Custom', 100))
+
+        fan_control_actions = (
+            fan_off_action,
+            fan_auto_action,
+            fan_max_action,
+        )
+
+        fan_custom_menu = QMenu('Fan Custom', tray_menu)
+
+        action_group = QActionGroup(fan_custom_menu)
+        percent_values: list[int] = [10, 25, 50, 80, 100]
+        for p in percent_values:
+            action = QAction(f'{p}%', fan_custom_menu)
+            action.setCheckable(True)
+            action.triggered.connect(
+                lambda checked, _p=p: self.fan_action_handler('Custom', _p)
+            )
+            action_group.addAction(action)
+            fan_custom_menu.addAction(action)
+
+        hide_show_program_action = QAction('Hide', tray_menu)
+        hide_show_program_action.triggered.connect(self.hide_show_action_handler)
+        close_program_action = QAction('Exit', tray_menu)
+        close_program_action.triggered.connect(self.close)
+
+        program_actions = (
+            hide_show_program_action,
+            close_program_action,
+        )
+
+        tray_menu.addMenu(fan_custom_menu)
+        tray_menu.addActions(fan_control_actions)
+        tray_menu.addSeparator()
+        tray_menu.addActions(program_actions)
+
+        self.tray.setContextMenu(tray_menu)
+
+    # TODO: this thing needs to be smarter
+    def fan_action_handler(self, mode: str = 'custom', percent: int = 50):
+        self.set_mode(mode)
+        if mode == 'auto':
+            self.apply_auto_fan_speeds()
+        else:
+            self.set_custom_fan_speeds_direct(percent)
+
+    def hide_show_action_handler(self):
+        action: QAction = self.sender()
+        if self.isVisible():
+            action.setText('Hide')
+            self.show()
+        else:
+            action.setText('Show')
+            self.hide()
+
+    def tray_activation_handler(self, reason):
+        if reason == QSystemTrayIcon.DoubleClick:
+            if self.isVisible():
+                self.hide()
+            else:
+                self.show()
+
+    # TODO: make this function safer. Maybe create enum for modes
+    def set_mode(self, mode: int | str = 0) -> None:
+        if isinstance(mode, int):
+            self.mode_combo.setCurrentIndex(mode)
+        elif isinstance(mode, str):
+            self.mode_combo.setCurrentText(mode)
+        else:
+            raise ValueError(
+                'Mode can be int or str value. 0 - "Custom", 1 - "Max", 2 - "Auto"')
 
     def start_temp_worker(self):
         self.temp_worker = TempWorker()
@@ -757,10 +851,10 @@ class MainWindow(QWidget):
             return 50  # fallback
         # First rule: match temp <= max
         if temp <= config[0]["max"]:
-            return config[0]["speed"]
+            return config[0]['speed']
         # Middle rules: min <= temp <= max
         for entry in config[1:-1]:
-            if entry["min"] <= temp <= entry["max"]:
+            if entry['min'] <= temp <= entry['max']:
                 return entry["speed"]
         # Last rule: match temp >= min
         if temp >= config[-1]["min"]:
@@ -774,6 +868,10 @@ class MainWindow(QWidget):
         gpu_speed = self.get_auto_fan_speed(self.gpu_temp, self.auto_fan_config)
         self.cpu_fan_widget.apply_fan_speed_direct(cpu_speed)
         self.gpu_fan_widget.apply_fan_speed_direct(gpu_speed)
+
+    def set_custom_fan_speeds_direct(self, percent: int) -> None:
+        self.cpu_fan_widget.apply_fan_speed_direct(percent)
+        self.gpu_fan_widget.apply_fan_speed_direct(percent)
 
 
 # if __name__ == "__main__":
