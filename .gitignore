@@ -6,10 +6,11 @@
 env/
 venv/
 
-# IDE PyCharm and VS Code stuff
+# IDE and cache
 __pycache__/
 .idea/
 .vscode
+.ruff_cache
 
 # PyInstaller
 build/

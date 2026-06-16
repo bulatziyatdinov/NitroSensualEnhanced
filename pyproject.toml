@@ -17,5 +17,6 @@ required-environments = [
 
 [dependency-groups]
 dev = [
+    "pyinstaller>=6.21.0",
     "ruff>=0.15.16",
 ]

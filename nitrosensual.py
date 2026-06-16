@@ -1,6 +1,6 @@
 import os
 
-from PyQt5.QtCore import QPoint, QRect, QSize, Qt, QThread, QTimer, pyqtSignal
+from PyQt5.QtCore import QPoint, QRect, QSize, Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QColor, QIcon, QPainter
 from PyQt5.QtWidgets import (
     QAction,
@@ -283,11 +283,13 @@ class RangeSliderWidget(QWidget):
         }
 
 
+# TODO: this thing from the original code is updating all indicators.
+#  Also it's make  feel uneasy. Maybe this needs some reworking
 class TempWorker(QThread):
     # pyqtSignal args:          cpu_temp, cpu_rpm, gpu_temp, gpu_rpm
     temps_updated = pyqtSignal(object, object, object, object)
 
-    def __init__(self, poll_interval=2):
+    def __init__(self, poll_interval: int = 1):
         super().__init__()
         self.poll_interval = poll_interval
         self._running = True
@@ -586,11 +588,11 @@ class MainWindow(QWidget):
         self.current_mode = self.config.get("mode", "Custom")
         
         self.init_ui()
-        
+
         self.start_temp_worker()
 
     def init_ui(self):
-        self.setWindowTitle("NitroSensual 1.2")
+        self.setWindowTitle("NitroSensualEnhanced")
         self.layout = QVBoxLayout()
 
         # Mode dropdown and graph button
@@ -647,13 +649,6 @@ class MainWindow(QWidget):
         self.setLayout(self.layout)
         self.resize(400, 200)
 
-        # TODO: check this timer code later
-        # Timer for refreshing current speeds and temperature
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.refresh_speeds)
-        self.timer.start(1000)
-        self.refresh_speeds()
-
         # Set dropdown state
         idx = self.mode_combo.findText(self.current_mode)
         if idx != -1:
@@ -698,13 +693,13 @@ class MainWindow(QWidget):
             action_group.addAction(action)
             fan_custom_menu.addAction(action)
 
-        hide_show_program_action = QAction('Hide', tray_menu)
-        hide_show_program_action.triggered.connect(self.hide_show_action_handler)
+        self.hide_show_program_action = QAction('Hide', tray_menu)
+        self.hide_show_program_action.triggered.connect(self.hide_show_action_handler)
         close_program_action = QAction('Exit', tray_menu)
         close_program_action.triggered.connect(self.close)
 
         program_actions = (
-            hide_show_program_action,
+            self.hide_show_program_action,
             close_program_action,
         )
 
@@ -724,20 +719,16 @@ class MainWindow(QWidget):
             self.set_custom_fan_speeds_direct(percent)
 
     def hide_show_action_handler(self):
-        action: QAction = self.sender()
         if self.isVisible():
-            action.setText('Hide')
-            self.show()
-        else:
-            action.setText('Show')
+            self.hide_show_program_action.setText('Show')
             self.hide()
+        else:
+            self.hide_show_program_action.setText('Hide')
+            self.show()
 
     def tray_activation_handler(self, reason):
         if reason == QSystemTrayIcon.DoubleClick:
-            if self.isVisible():
-                self.hide()
-            else:
-                self.show()
+            self.hide_show_action_handler()
 
     # TODO: make this function safer. Maybe create enum for modes
     def set_mode(self, mode: int | str = 0) -> None:
@@ -793,6 +784,7 @@ class MainWindow(QWidget):
             self.apply_auto_fan_speeds()
         save_config(self.config)
 
+    # TODO: refresh_speeds() and on_temps_updated() do the same thing, needs refactoring
     def refresh_speeds(self):
         cpu_percent = read_fan_speed("cpu")
         gpu_percent = read_fan_speed("gpu")
@@ -833,7 +825,7 @@ class MainWindow(QWidget):
         # Optionally, reset UI to match config (not strictly needed on close)
         if hasattr(self, 'temp_worker'):
             self.temp_worker.stop()
-            self.temp_worker.wait()
+            self.temp_worker.terminate()
         # Reset dropdown and sliders to config values
         idx = self.mode_combo.findText(self.current_mode)
         if idx != -1:

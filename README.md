@@ -1,4 +1,18 @@
-# NitroSensual `1.2`
+# NitroSensualEnhanced
+
+![Python 3.12+](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)
+![PyQt5](https://img.shields.io/badge/PyQt5-Framework-blue?logo=qt)
+[![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=flat&logo=windows&logoColor=white)](https://github.com/bulatziyatdinov/NitroSensualEnhanced)
+
+It's a fork of [KRWCLASSIC/NitroSensual](https://github.com/KRWCLASSIC/NitroSensual) where I added some features:
+
+- Tray Icon for fan control
+- Some optimizations
+- Refactored code
+
+Program works only on **Windows** platform due to abusing the NitroSense service and needs admin rights for registry modification to control fans.
+
+## About
 
 **NitroSensual** is a Windows fan control and monitoring app for Acer Nitro laptops and similar systems, might even work for Predator series. It provides bloatless GUI for controlling CPU and GPU fan speeds, and displays real-time temperature readings using LibreHardwareMonitor.
 
@@ -18,19 +32,67 @@
 
 - **Laptop monitoring**: Uses PSsvc (PredatorSense Service) to read temperatures and fan speeds.
 
-> If something breaks, due to how it's designed you can reset fan speeds in NitroSense by manually setting speed or switching to Auto.
-
 ## Installation
 
-A ready-to-use Windows binary is available in the [Releases](https://github.com/KRWCLASSIC/NitroSensual/releases) tab.
+A ready-to-use Windows binary is available in the [**Releases**](https://github.com/bulatziyatdinov/NitroSensualEnhanced/releases) tab.
 
-## Usage
+Project works on Python 3.12+. Versions below are not tested.
 
-Double click and use GUI to control your fans!
+1. Clone the repository:
 
-> CLI Support will be added in the near future!
+```bash
+git clone https://github.com/bulatziyatdinov/NitroSensualEnhanced
+```
+
+2. Move into directory:
+
+```bash
+cd NitroSensualEnhanced
+```
+
+3.1 For UV users:
+
+```bash
+uv run main.py
+```
+
+3.2 For pip users:
+
+- Create virtual environment:
+
+```bash
+python -m venv .venv
+```
+
+- Activate virtual environment:
+
+For Windows:
+
+```bash
+.venv/Scripts/activate
+```
+
+For Linux/MacOS (*only for development because program works only on Windows*):
+
+```bash
+source .venv/bin/activate
+```
+
+- Install requirements:
+
+```bash
+pip install -r requirements.txt
+```
+
+- Run program:
+
+```bash
+python main.py
+```
+
 
 ## Notes
 
 - You must enable "Custom" mode in NitroSense for fan control to work.
 - You must have PredatorSense service (PSsvc) running to use this app.
+- If something breaks, due to how it's designed you can reset fan speeds in NitroSense by manually setting speed or switching to Auto.
