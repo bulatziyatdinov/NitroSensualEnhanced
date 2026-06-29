@@ -1,6 +1,6 @@
 import os
 
-from PyQt5.QtCore import QPoint, QRect, QSize, Qt, QThread, pyqtSignal
+from PyQt5.QtCore import QPoint, QProcess, QRect, QSize, Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QColor, QIcon, QPainter
 from PyQt5.QtWidgets import (
     QAction,
@@ -10,7 +10,9 @@ from PyQt5.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QMainWindow,
     QMenu,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -22,6 +24,7 @@ from PyQt5.QtWidgets import (
 )
 
 from utils import (
+    DEFAULT_CONFIG_FILENAME,
     apply_fan_speed,
     get_app_dir,
     get_cpu_gpu_temp_and_rpm,
@@ -284,7 +287,7 @@ class RangeSliderWidget(QWidget):
 
 
 # TODO: this thing from the original code is updating all indicators.
-#  Also it's make  feel uneasy. Maybe this needs some reworking
+#  Also it makes me feel uneasy. Maybe this needs some reworking
 class TempWorker(QThread):
     # pyqtSignal args:          cpu_temp, cpu_rpm, gpu_temp, gpu_rpm
     temps_updated = pyqtSignal(object, object, object, object)
@@ -576,24 +579,88 @@ class AutoFanConfigDialog(QDialog):
         self.configChanged.emit(self.get_config())
 
 
-class MainWindow(QWidget):
+class AboutDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("About")
+        self.setFixedSize(400, 180)
+
+        html = """
+        <h2>NitroSensualEnhanced</h2>
+        <p><b>Version:</b> 29.06.2026</p>
+        <p><b>GitHub:</b> 
+        <a href="https://github.com/bulatziyatdinov/NitroSensualEnhanced">
+        github.com/bulatziyatdinov/NitroSensualEnhanced</a></p>
+        <p><b>Original Author:</b> 
+        <a href="https://github.com/KRWCLASSIC/NitroSensual">
+        https://github.com/KRWCLASSIC/NitroSensual</a></p>
+        """
+
+        label = QLabel(html)
+        label.setAlignment(Qt.AlignCenter)
+        label.setOpenExternalLinks(True)
+
+        layout = QVBoxLayout()
+        layout.addWidget(label)
+        self.setLayout(layout)
+
+
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+
         self.config = load_config(CONFIG_FILE)
         self.cpu_temp = None
         self.cpu_rpm = None
         self.gpu_temp = None
         self.gpu_rpm = None
-        self.auto_fan_config = self.config["auto_fan_config"]
-        self.current_mode = self.config.get("mode", "Custom")
-        
-        self.init_ui()
+        self.auto_fan_config = self.config['auto_fan_config']
+        self.current_mode = self.config.get('mode', 'Custom')
 
+        self.init_ui()
         self.start_temp_worker()
+        self.setWindowIcon(QIcon('resources/icon.png'))
 
     def init_ui(self):
         self.setWindowTitle("NitroSensualEnhanced")
-        self.layout = QVBoxLayout()
+
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        self.layout = QVBoxLayout(central_widget)
+
+        self.menubar = self.menuBar()
+        menu = self.menubar.addMenu('Меню')
+
+        def open_config_file():
+            file_path = os.path.abspath(DEFAULT_CONFIG_FILENAME)
+            if os.path.exists(file_path):
+                QProcess.startDetached('notepad.exe', [file_path])
+            else:
+                QMessageBox.warning(self, "Error", "There is no file config.json")
+
+        open_config_menu_action = QAction("&Open Config File", menu)
+        open_config_menu_action.triggered.connect(open_config_file)
+
+        about_menu_action = QAction("&About", menu)
+
+        def show_about():
+            dialog = AboutDialog(self)
+            dialog.exec_()
+
+        about_menu_action.triggered.connect(show_about)
+
+        hide_menu_action = QAction("&Hide", menu)
+        hide_menu_action.triggered.connect(self.hide_show_action_handler)
+
+        exit_menu_action = QAction("&Exit", menu)
+        exit_menu_action.triggered.connect(self.close)
+
+        menu.addAction(open_config_menu_action)
+        menu.addAction(about_menu_action)
+        menu.addAction(hide_menu_action)
+        menu.addAction(exit_menu_action)
+
+        self.menubar.addMenu(menu)
 
         # Mode dropdown and graph button
         mode_layout = QHBoxLayout()
@@ -662,7 +729,7 @@ class MainWindow(QWidget):
     def init_tray(self):
         self.tray = QSystemTrayIcon(self)
         self.tray.setVisible(True)
-        self.tray.setIcon(QIcon('resources/star.png'))
+        self.tray.setIcon(QIcon('resources/icon.png'))
         self.tray.activated.connect(self.tray_activation_handler)
 
         tray_menu = QMenu()

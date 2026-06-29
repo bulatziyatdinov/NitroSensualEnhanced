@@ -3,6 +3,7 @@ import os
 import struct
 import sys
 import winreg
+from typing import Any
 
 import pywintypes
 import win32file
@@ -41,6 +42,7 @@ AVAILABLE_FAN_TYPES = (
 )
 
 
+# That is for pyinstaller paths
 def get_app_dir() -> str:
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
@@ -48,7 +50,7 @@ def get_app_dir() -> str:
         return os.path.dirname(os.path.abspath(__file__))
 
 
-def load_config(filepath: str = DEFAULT_CONFIG_FILENAME):
+def load_config(filepath: str = DEFAULT_CONFIG_FILENAME) -> dict:
     if not os.path.exists(filepath):
         save_config(DEFAULT_CONFIG)
         return DEFAULT_CONFIG.copy()
@@ -95,7 +97,7 @@ def write_fan_speed(fan_type: str, percent: int) -> None:
 
 
 # Helper to apply fan speed via named pipe
-def apply_fan_speed(fan_type: str, percent: int) -> None:
+def apply_fan_speed(fan_type: str, percent: int) -> tuple[bool, str]:
     fan_group_type = 1 if fan_type == "cpu" else 4
     data = (percent << 8) | fan_group_type
     packet = struct.pack("<HBIQ", 16, 1, 8, data)
@@ -128,7 +130,7 @@ def send_command_by_named_pipe(pipe, cmd_code: int, args: list) -> None:
     win32file.FlushFileBuffers(pipe)
 
 
-def decode_result(result):
+def decode_result(result: Any) -> int | None:
     if result is None:
         return None
     if result & 0xFF == 0:
