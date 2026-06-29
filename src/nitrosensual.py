@@ -36,6 +36,7 @@ from utils import (
 
 APP_DIR = get_app_dir()
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
+ICON_PATH = 'icon.png'
 
 
 class ProgressDialog(QDialog):
@@ -619,7 +620,9 @@ class MainWindow(QMainWindow):
 
         self.init_ui()
         self.start_temp_worker()
-        self.setWindowIcon(QIcon('resources/icon.png'))
+        self.setWindowIcon(QIcon(ICON_PATH))
+
+        self.on_mode_changed(self.current_mode)
 
     def init_ui(self):
         self.setWindowTitle("NitroSensualEnhanced")
@@ -627,40 +630,6 @@ class MainWindow(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         self.layout = QVBoxLayout(central_widget)
-
-        self.menubar = self.menuBar()
-        menu = self.menubar.addMenu('Меню')
-
-        def open_config_file():
-            file_path = os.path.abspath(DEFAULT_CONFIG_FILENAME)
-            if os.path.exists(file_path):
-                QProcess.startDetached('notepad.exe', [file_path])
-            else:
-                QMessageBox.warning(self, "Error", "There is no file config.json")
-
-        open_config_menu_action = QAction("&Open Config File", menu)
-        open_config_menu_action.triggered.connect(open_config_file)
-
-        about_menu_action = QAction("&About", menu)
-
-        def show_about():
-            dialog = AboutDialog(self)
-            dialog.exec_()
-
-        about_menu_action.triggered.connect(show_about)
-
-        hide_menu_action = QAction("&Hide", menu)
-        hide_menu_action.triggered.connect(self.hide_show_action_handler)
-
-        exit_menu_action = QAction("&Exit", menu)
-        exit_menu_action.triggered.connect(self.close)
-
-        menu.addAction(open_config_menu_action)
-        menu.addAction(about_menu_action)
-        menu.addAction(hide_menu_action)
-        menu.addAction(exit_menu_action)
-
-        self.menubar.addMenu(menu)
 
         # Mode dropdown and graph button
         mode_layout = QHBoxLayout()
@@ -673,9 +642,7 @@ class MainWindow(QMainWindow):
 
         mode_layout.addStretch()  # Pushes the button to the right
 
-        self.graph_btn = QPushButton("📈")
-        self.graph_btn.setFixedWidth(32)
-        self.graph_btn.setToolTip("Configure Auto Mode")
+        self.graph_btn = QPushButton("Configure Auto Mode 📈")
         self.graph_btn.clicked.connect(self.open_auto_config)
         mode_layout.addWidget(self.graph_btn)
 
@@ -708,13 +675,14 @@ class MainWindow(QMainWindow):
         gpu_group = QGroupBox("GPU Fan")
         gpu_layout = QVBoxLayout()
         self.gpu_fan_widget = FanControlWidget(
-            "gpu", refresh_callback=self.refresh_speeds)
+            'gpu', refresh_callback=self.refresh_speeds
+        )
         gpu_layout.addWidget(self.gpu_fan_widget)
         gpu_group.setLayout(gpu_layout)
         self.layout.addWidget(gpu_group)
 
         self.setLayout(self.layout)
-        self.resize(400, 200)
+        self.setMinimumSize(400, 420)
 
         # Set dropdown state
         idx = self.mode_combo.findText(self.current_mode)
@@ -725,11 +693,13 @@ class MainWindow(QMainWindow):
         self.gpu_fan_widget.slider.setValue(self.config.get('custom_gpu', 50))
 
         self.init_tray()
+        self.init_menubar()
 
     def init_tray(self):
         self.tray = QSystemTrayIcon(self)
+        self.tray.setToolTip("NitroSensualEnhanced")
         self.tray.setVisible(True)
-        self.tray.setIcon(QIcon('resources/icon.png'))
+        self.tray.setIcon(QIcon(ICON_PATH))
         self.tray.activated.connect(self.tray_activation_handler)
 
         tray_menu = QMenu()
@@ -777,6 +747,38 @@ class MainWindow(QMainWindow):
 
         self.tray.setContextMenu(tray_menu)
 
+    def init_menubar(self):
+        self.menubar = self.menuBar()
+
+        open_config_menu_action = QAction('&Open Config File', self.menubar)
+        open_config_menu_action.triggered.connect(self._open_config_file)
+
+        about_menu_action = QAction('&About', self.menubar)
+
+        about_menu_action.triggered.connect(self._show_about)
+
+        hide_menu_action = QAction('&Hide', self.menubar)
+        hide_menu_action.triggered.connect(self.hide_show_action_handler)
+
+        exit_menu_action = QAction("&Exit", self.menubar)
+        exit_menu_action.triggered.connect(self.close)
+
+        self.menubar.addAction(open_config_menu_action)
+        self.menubar.addAction(about_menu_action)
+        self.menubar.addAction(hide_menu_action)
+        self.menubar.addAction(exit_menu_action)
+
+    def _open_config_file(self):
+        file_path = os.path.abspath(DEFAULT_CONFIG_FILENAME)
+        if os.path.exists(file_path):
+            QProcess.startDetached('notepad.exe', [file_path])
+        else:
+            QMessageBox.warning(self, "Error", "There is no file config.json")
+
+    def _show_about(self):
+        dialog = AboutDialog(self)
+        dialog.exec_()
+
     # TODO: this thing needs to be smarter
     def fan_action_handler(self, mode: str = 'custom', percent: int = 50):
         self.set_mode(mode)
@@ -817,7 +819,10 @@ class MainWindow(QMainWindow):
         self.cpu_rpm = cpu_rpm
         self.gpu_temp = gpu_temp
         self.gpu_rpm = gpu_rpm
+
         self.update_temp_labels()
+        self.refresh_speeds()
+
         if getattr(self, "current_mode", None) == "Auto":
             self.apply_auto_fan_speeds()
 
@@ -829,29 +834,6 @@ class MainWindow(QMainWindow):
         self.cpu_temp_label.setText(cpu_temp_text)
         self.gpu_temp_label.setText(gpu_temp_text)
 
-    def on_mode_changed(self, mode):
-        self.current_mode = mode  # Track current mode
-        self.config["mode"] = mode
-        # Save custom values if in custom mode
-        if mode == "Custom":
-            self.cpu_fan_widget.set_custom_mode(True)
-            self.gpu_fan_widget.set_custom_mode(True)
-            self.cpu_fan_widget.apply_fan_speed()
-            self.gpu_fan_widget.apply_fan_speed()
-            self.config["custom_cpu"] = self.cpu_fan_widget.slider.value()
-            self.config["custom_gpu"] = self.gpu_fan_widget.slider.value()
-        elif mode == "Max":
-            self.cpu_fan_widget.set_custom_mode(False)
-            self.gpu_fan_widget.set_custom_mode(False)
-            self.cpu_fan_widget.apply_fan_speed_direct(100)
-            self.gpu_fan_widget.apply_fan_speed_direct(100)
-        elif mode == "Auto":
-            self.cpu_fan_widget.set_custom_mode(False)
-            self.gpu_fan_widget.set_custom_mode(False)
-            self.apply_auto_fan_speeds()
-        save_config(self.config)
-
-    # TODO: refresh_speeds() and on_temps_updated() do the same thing, needs refactoring
     def refresh_speeds(self):
         cpu_percent = read_fan_speed("cpu")
         gpu_percent = read_fan_speed("gpu")
@@ -864,9 +846,34 @@ class MainWindow(QMainWindow):
         self.cpu_speed_label.setText(cpu_text)
         self.gpu_speed_label.setText(gpu_text)
 
+    def on_mode_changed(self, mode):
+        self.current_mode = mode  # Track current mode
+        self.config["mode"] = mode
+        # Save custom values if in custom mode
+        if mode == "Custom":
+            self.cpu_fan_widget.set_custom_mode(True)
+            self.gpu_fan_widget.set_custom_mode(True)
+            self.cpu_fan_widget.apply_fan_speed()
+            self.gpu_fan_widget.apply_fan_speed()
+            self.config["custom_cpu"] = self.cpu_fan_widget.slider.value()
+            self.config["custom_gpu"] = self.gpu_fan_widget.slider.value()
+            self.graph_btn.setDisabled(True)
+        elif mode == "Max":
+            self.cpu_fan_widget.set_custom_mode(False)
+            self.gpu_fan_widget.set_custom_mode(False)
+            self.cpu_fan_widget.apply_fan_speed_direct(100)
+            self.gpu_fan_widget.apply_fan_speed_direct(100)
+            self.graph_btn.setDisabled(True)
+        elif mode == "Auto":
+            self.cpu_fan_widget.set_custom_mode(False)
+            self.gpu_fan_widget.set_custom_mode(False)
+            self.apply_auto_fan_speeds()
+            self.graph_btn.setDisabled(False)
+        save_config(self.config)
+
     def open_auto_config(self):
         # Backup current config for possible revert
-        backup_config = [dict(x) for x in self.auto_fan_config]
+        backup_config = self.auto_fan_config.copy()
         dialog = AutoFanConfigDialog(self, [dict(x) for x in self.auto_fan_config])
         dialog.configChanged.connect(self.on_auto_config_live_update)
         result = dialog.exec_()
