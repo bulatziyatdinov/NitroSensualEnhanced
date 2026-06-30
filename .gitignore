@@ -16,11 +16,13 @@ __pycache__/
 build/
 dist/
 *.manifest
-*.spec
 
 # Project files
 trash/
 
+src/config.json
 config.json
 app_icon.ico
 todo.log
+error_log.txt
+notes.txt
