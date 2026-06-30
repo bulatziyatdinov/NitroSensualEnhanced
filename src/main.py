@@ -11,13 +11,12 @@ def exception_handler(exc_type, exc_value, exc_tb):
     traceback.print_exception(exc_type, exc_value, exc_tb)
     with open('error_log.txt', 'a', encoding='utf-8') as f:
         traceback.print_exception(exc_type, exc_value, exc_tb, file=f)
-        f.write("\n")
+        f.write('\n')
     sys.exit(1)
 
 
 def main():
     try:
-        pass
         elevate.elevate(show_console=False)
     except OSError as ex:
         print(ex, '\n\nERROR: The program requires administrator rights.\n')

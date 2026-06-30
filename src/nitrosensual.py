@@ -35,21 +35,8 @@ from utils import (
 )
 
 APP_DIR = get_app_dir()
-CONFIG_FILE = os.path.join(APP_DIR, "config.json")
+CONFIG_FILE = os.path.join(APP_DIR, 'config.json')
 ICON_PATH = 'icon.png'
-
-
-class ProgressDialog(QDialog):
-    def __init__(self, message):
-        super().__init__()
-        self.setWindowTitle("Please Wait")
-        self.setModal(True)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
-        layout = QVBoxLayout()
-        label = QLabel(message)
-        layout.addWidget(label)
-        self.setLayout(layout)
-        self.setFixedSize(350, 80)
 
 
 class FanControlWidget(QWidget):
@@ -625,7 +612,7 @@ class MainWindow(QMainWindow):
         self.on_mode_changed(self.current_mode)
 
     def init_ui(self):
-        self.setWindowTitle("NitroSensualEnhanced")
+        self.setWindowTitle('NitroSensualEnhanced')
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -667,7 +654,7 @@ class MainWindow(QMainWindow):
         cpu_group = QGroupBox("CPU Fan")
         cpu_layout = QVBoxLayout()
         self.cpu_fan_widget = FanControlWidget(
-            "cpu", refresh_callback=self.refresh_speeds)
+            'cpu', refresh_callback=self.refresh_speeds)
         cpu_layout.addWidget(self.cpu_fan_widget)
         cpu_group.setLayout(cpu_layout)
         self.layout.addWidget(cpu_group)
