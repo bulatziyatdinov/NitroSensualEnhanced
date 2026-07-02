@@ -575,7 +575,7 @@ class AboutDialog(QDialog):
 
         html = """
         <h2>NitroSensualEnhanced</h2>
-        <p><b>Version:</b> 29.06.2026</p>
+        <p><b>Version:</b> 1.1.0</p>
         <p><b>GitHub:</b> 
         <a href="https://github.com/bulatziyatdinov/NitroSensualEnhanced">
         github.com/bulatziyatdinov/NitroSensualEnhanced</a></p>
@@ -598,10 +598,12 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.config = load_config(CONFIG_FILE)
-        self.cpu_temp = None
-        self.cpu_rpm = None
-        self.gpu_temp = None
-        self.gpu_rpm = None
+        self.cpu_temp: int | None = None
+        self.cpu_rpm: int | None = None
+        self.gpu_temp: int | None = None
+        self.gpu_rpm: int | None = None
+        self.cpu_percent: int | None = None
+        self.gpu_percent: int | None = None
         self.auto_fan_config = self.config['auto_fan_config']
         self.current_mode = self.config.get('mode', 'Custom')
 
@@ -610,6 +612,7 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon(ICON_PATH))
 
         self.on_mode_changed(self.current_mode)
+        self.refresh_speeds()
 
     def init_ui(self):
         self.setWindowTitle('NitroSensualEnhanced')
@@ -691,6 +694,14 @@ class MainWindow(QMainWindow):
 
         tray_menu = QMenu()
 
+        self.cpu_info_action = QAction(f"{self.cpu_temp}°C", tray_menu)
+        self.gpu_info_action = QAction(f"{self.gpu_temp}°C", tray_menu)
+
+        fan_info_actions = (
+            self.cpu_info_action,
+            self.gpu_info_action,
+        )
+
         fan_off_action = QAction("Fan OFF", tray_menu)
         fan_off_action.triggered.connect(lambda: self.fan_action_handler('Custom', 0))
         fan_auto_action = QAction("Fan Auto", tray_menu)
@@ -707,7 +718,7 @@ class MainWindow(QMainWindow):
         fan_custom_menu = QMenu('Fan Custom', tray_menu)
 
         action_group = QActionGroup(fan_custom_menu)
-        percent_values: list[int] = [10, 25, 50, 80, 100]
+        percent_values: list[int] = [10, 20, 30, 50, 80]
         for p in percent_values:
             action = QAction(f'{p}%', fan_custom_menu)
             action.setCheckable(True)
@@ -727,6 +738,8 @@ class MainWindow(QMainWindow):
             close_program_action,
         )
 
+        tray_menu.addActions(fan_info_actions)
+        tray_menu.addSeparator()
         tray_menu.addMenu(fan_custom_menu)
         tray_menu.addActions(fan_control_actions)
         tray_menu.addSeparator()
@@ -767,9 +780,9 @@ class MainWindow(QMainWindow):
         dialog.exec_()
 
     # TODO: this thing needs to be smarter
-    def fan_action_handler(self, mode: str = 'custom', percent: int = 50):
+    def fan_action_handler(self, mode: str = 'Custom', percent: int = 50):
         self.set_mode(mode)
-        if mode == 'auto':
+        if mode == 'Auto':
             self.apply_auto_fan_speeds()
         else:
             self.set_custom_fan_speeds_direct(percent)
@@ -820,16 +833,20 @@ class MainWindow(QMainWindow):
                          f"{self.gpu_temp if self.gpu_temp is not None else '?'}°C")
         self.cpu_temp_label.setText(cpu_temp_text)
         self.gpu_temp_label.setText(gpu_temp_text)
+        # tray menu info
+        self.cpu_info_action.setText(cpu_temp_text)
+        self.gpu_info_action.setText(gpu_temp_text)
 
+    # TODO: The read_fan_speed function needs to be moved to the TempWorker.
     def refresh_speeds(self):
-        cpu_percent = read_fan_speed("cpu")
-        gpu_percent = read_fan_speed("gpu")
+        self.cpu_percent = read_fan_speed("cpu")
+        self.gpu_percent = read_fan_speed("gpu")
         cpu_rpm = self.cpu_rpm if self.cpu_rpm is not None else '?'
         gpu_rpm = self.gpu_rpm if self.gpu_rpm is not None else '?'
         cpu_text = (f"CPU Fan Current Speed: "
-                    f"{cpu_percent if cpu_percent >= 0 else '?'}% ({cpu_rpm} RPM)")
+                    f"{self.cpu_percent if self.cpu_percent >= 0 else '?'}% ({cpu_rpm} RPM)")
         gpu_text = (f"GPU Fan Current Speed: "
-                    f"{gpu_percent if gpu_percent >= 0 else '?'}% ({gpu_rpm} RPM)")
+                    f"{self.gpu_percent if self.gpu_percent >= 0 else '?'}% ({gpu_rpm} RPM)")
         self.cpu_speed_label.setText(cpu_text)
         self.gpu_speed_label.setText(gpu_text)
 
