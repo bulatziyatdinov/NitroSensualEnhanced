@@ -5,36 +5,28 @@
 [![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=flat&logo=windows&logoColor=white)](https://github.com/bulatziyatdinov/NitroSensualEnhanced)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-It's a fork of [KRWCLASSIC/NitroSensual](https://github.com/KRWCLASSIC/NitroSensual) [KRWCLASSIC/NitroSensual](https://github.com/KRWCLASSIC/NitroSensual) where I added some features:
-
-- Tray Icon for fan control
-- Menu bar
-- Some optimizations
-- Refactored code
+**NitroSensualEnhanced** is a Windows fan control and monitoring app for Acer Nitro 
+laptops and similar systems, might even work for Predator series. It provides 
+GUI for controlling CPU and GPU fan speeds, and displays real-time temperature.
 
 Program works only on **Windows** platform due to abusing the NitroSense service 
 and needs admin rights for registry modification to control fans.
 
-## About
-
-**NitroSensual** is a Windows fan control and monitoring app for Acer Nitro laptops 
-and similar systems, might even work for Predator series. It provides bloatless 
-GUI for controlling CPU and GPU fan speeds, and displays real-time temperature readings 
-using LibreHardwareMonitor.
+It's a fork of [KRWCLASSIC/NitroSensual](https://github.com/KRWCLASSIC/NitroSensual) [KRWCLASSIC/NitroSensual](https://github.com/KRWCLASSIC/NitroSensual) where 
+I added some new features, refactored and optimized the original code.
 
 ## Screenshots
 
-![Screenshot 1](https://images2.imgbox.com/68/1e/7YsNP9XN_o.png)
-
-![Screenshot 2](https://images2.imgbox.com/8d/8d/R3rdT4ok_o.png)
+![Screenshot 1](https://images2.imgbox.com/aa/3b/jbvLucfT_o.png)
+![Screenshot 2](https://images2.imgbox.com/78/95/iv1ifR3q_o.png)
 
 ## Features
 
-- Control CPU and GPU fan speeds (requires NitroSense in Custom mode)
-- View real-time CPU and GPU temperatures
-- Auto mode for temperature ranges with editor
-- Automatic admin privilege elevation for registry access
-- Clean PyQt5 interface
+- CPU and GPU Fan Speeds Control
+- Real-time CPU and GPU Temperatures Display
+- Auto Mode for Temperature Ranges with Editor
+- Clean and User-friendly Interface
+- Tray Icon for Fan Speeds Control
 
 ## How It Works
 
@@ -63,7 +55,8 @@ cd NitroSensualEnhanced
 3.1 For `uv` users:
 
 ```bash
-uv run src/main.py
+cd src
+uv run main.py
 ```
 
 3.2 For pip users:
@@ -97,12 +90,13 @@ pip install -r requirements.txt
 - Run program:
 
 ```bash
-python src/main.py
+cd src
+python main.py
 ```
 
 ## Build
 
-Use `build.bat` for build exe.
+Run `build.bat` to build executable.
 
 
 ## Notes

@@ -8,7 +8,7 @@ echo [INFO] Starting build process with uv
 :: ------------------------------------------------------------
 set VENV_DIR=.venv
 set SPEC_FILE=build.spec
-set DIST_DIR=dist
+set DIST_DIR="dist/NitroSensualEnhanced"
 set SRC_DIR=src
 
 :: ------------------------------------------------------------
@@ -66,7 +66,7 @@ if exist %DIST_DIR% (
 :: 6. Run PyInstaller
 :: ------------------------------------------------------------
 echo [INFO] Running PyInstaller with spec file %SPEC_FILE%
-pyinstaller %SPEC_FILE%
+pyinstaller --distpath %DIST_DIR% %SPEC_FILE%
 if errorlevel 1 (
     echo [ERROR] PyInstaller build failed.
     exit /b 1

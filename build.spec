@@ -10,7 +10,6 @@ a = Analysis(
     binaries=[],
     datas=[],
     hiddenimports=[
-        'pywin32',
         'elevate',
         'PyQt5',
         'PyQt5.QtCore',
