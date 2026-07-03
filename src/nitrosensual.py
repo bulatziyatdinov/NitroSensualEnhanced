@@ -23,8 +23,8 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from settings import APP_TITLE, APP_VERSION, DEFAULT_CONFIG_FILENAME, ICON_PATH
 from utils import (
-    DEFAULT_CONFIG_FILENAME,
     apply_fan_speed,
     get_app_dir,
     get_cpu_gpu_temp_and_rpm,
@@ -34,9 +34,7 @@ from utils import (
     write_fan_speed,
 )
 
-APP_DIR = get_app_dir()
-CONFIG_FILE = os.path.join(APP_DIR, 'config.json')
-ICON_PATH = 'icon.png'
+CONFIG_FILE = os.path.join(get_app_dir(), DEFAULT_CONFIG_FILENAME)
 
 
 class FanControlWidget(QWidget):
@@ -63,18 +61,18 @@ class FanControlWidget(QWidget):
         layout.addWidget(self.apply_btn)
         self.setLayout(layout)
 
-    def on_slider_changed(self, v):
-        self.value_label.setText(f"{v}%")
-        self.last_custom_value = v  # Update last custom value
+    def on_slider_changed(self, value: int):
+        self.value_label.setText(f"{value}%")
+        self.last_custom_value = value  # Update last custom value
         # Only update in-memory config, do NOT save to disk here!
         main = self.parentWidget()
         while main and not isinstance(main, MainWindow):
             main = main.parentWidget()
         if main and main.current_mode == "Custom":
             if self.fan_type == "cpu":
-                main.config["custom_cpu"] = v
+                main.config["custom_cpu"] = value
             elif self.fan_type == "gpu":
-                main.config["custom_gpu"] = v
+                main.config["custom_gpu"] = value
 
     def set_custom_mode(self, enabled: bool):
         self.slider.setEnabled(enabled)
@@ -573,9 +571,9 @@ class AboutDialog(QDialog):
         self.setWindowTitle("About")
         self.setFixedSize(400, 180)
 
-        html = """
-        <h2>NitroSensualEnhanced</h2>
-        <p><b>Version:</b> 1.1.0</p>
+        html = f"""
+        <h2>{APP_TITLE}</h2>
+        <p><b>Version: </b>{APP_VERSION}</p>
         <p><b>GitHub:</b> 
         <a href="https://github.com/bulatziyatdinov/NitroSensualEnhanced">
         github.com/bulatziyatdinov/NitroSensualEnhanced</a></p>
@@ -615,7 +613,7 @@ class MainWindow(QMainWindow):
         self.refresh_speeds()
 
     def init_ui(self):
-        self.setWindowTitle('NitroSensualEnhanced')
+        self.setWindowTitle(APP_TITLE)
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -774,7 +772,7 @@ class MainWindow(QMainWindow):
         self.menubar.addAction(exit_menu_action)
 
     def _open_config_file(self):
-        file_path = os.path.abspath(DEFAULT_CONFIG_FILENAME)
+        file_path = os.path.abspath(CONFIG_FILE)
         if os.path.exists(file_path):
             QProcess.startDetached('notepad.exe', [file_path])
         else:
@@ -851,10 +849,8 @@ class MainWindow(QMainWindow):
         self.gpu_percent = read_fan_speed("gpu")
         cpu_rpm = self.cpu_rpm if self.cpu_rpm is not None else '?'
         gpu_rpm = self.gpu_rpm if self.gpu_rpm is not None else '?'
-        cpu_text = (f"CPU Fan Current Speed: "
-                    f"{self.cpu_percent if self.cpu_percent >= 0 else '?'}% ({cpu_rpm} RPM)")
-        gpu_text = (f"GPU Fan Current Speed: "
-                    f"{self.gpu_percent if self.gpu_percent >= 0 else '?'}% ({gpu_rpm} RPM)")
+        cpu_text = f"CPU Fan Speed: {self.cpu_percent}% ({cpu_rpm} RPM)"
+        gpu_text = f"GPU Fan Speed: {self.gpu_percent}% ({gpu_rpm} RPM)"
         self.cpu_speed_label.setText(cpu_text)
         self.gpu_speed_label.setText(gpu_text)
 

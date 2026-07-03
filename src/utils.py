@@ -8,36 +8,7 @@ from typing import Any
 import pywintypes
 import win32file
 
-# Variables from original code that are not used
-#LHM_DLL_PATH = None
-
-SYSTEM_HEALTH_INDEXES = {
-   1: "CPU_Temperature",
-   2: "CPU_Fan_Speed",
-   6: "GPU_Fan_Speed",
-   10: "GPU1_Temperature",
-}
-
-DEFAULT_CONFIG_FILENAME = "config.json"
-DEFAULT_CONFIG = {
-    "auto_fan_config": [
-        {"min": 0, "max": 39, "speed": 0},
-        {"min": 40, "max": 49, "speed": 20},
-        {"min": 50, "max": 59, "speed": 35},
-        {"min": 60, "max": 69, "speed": 50},
-        {"min": 70, "max": 79, "speed": 70},
-        {"min": 80, "max": 89, "speed": 85},
-        {"min": 90, "max": 100, "speed": 100},
-    ],
-    "mode": "Custom",
-    "custom_cpu": 50,
-    "custom_gpu": 50,
-}
-
-AVAILABLE_FAN_TYPES = (
-    'cpu',
-    'gpu',
-)
+from settings import DEFAULT_CONFIG, DEFAULT_CONFIG_FILENAME, SYSTEM_HEALTH_INDEXES
 
 
 # That is for pyinstaller paths
