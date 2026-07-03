@@ -18,8 +18,6 @@ SYSTEM_HEALTH_INDEXES = {
    10: "GPU1_Temperature",
 }
 
-
-
 DEFAULT_CONFIG_FILENAME = "config.json"
 DEFAULT_CONFIG = {
     "auto_fan_config": [

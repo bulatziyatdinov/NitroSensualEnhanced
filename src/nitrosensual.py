@@ -671,7 +671,6 @@ class MainWindow(QMainWindow):
         gpu_group.setLayout(gpu_layout)
         self.layout.addWidget(gpu_group)
 
-        self.setLayout(self.layout)
         self.setMinimumSize(400, 420)
 
         # Set dropdown state
@@ -695,7 +694,7 @@ class MainWindow(QMainWindow):
         tray_menu = QMenu()
 
         self.cpu_info_action = QAction(f"{self.cpu_temp}°C", tray_menu)
-        self.gpu_info_action = QAction(f"{self.gpu_temp}°C", tray_menu)
+        self.gpu_info_action = QAction(f'{self.gpu_temp}°C', tray_menu)
 
         fan_info_actions = (
             self.cpu_info_action,
@@ -715,18 +714,24 @@ class MainWindow(QMainWindow):
             fan_max_action,
         )
 
-        fan_custom_menu = QMenu('Fan Custom', tray_menu)
+        fan_action_group = QActionGroup(tray_menu)
+        fan_action_group.setExclusive(True)
 
-        action_group = QActionGroup(fan_custom_menu)
+        for action in fan_control_actions:
+            action.setCheckable(True)
+            fan_action_group.addAction(action)
+
+        self.fan_custom_menu = QMenu('Fan Custom', tray_menu)
+
         percent_values: list[int] = [10, 20, 30, 50, 80]
         for p in percent_values:
-            action = QAction(f'{p}%', fan_custom_menu)
+            action = QAction(f'{p}%', self.fan_custom_menu)
             action.setCheckable(True)
             action.triggered.connect(
                 lambda checked, _p=p: self.fan_action_handler('Custom', _p)
             )
-            action_group.addAction(action)
-            fan_custom_menu.addAction(action)
+            fan_action_group.addAction(action)
+            self.fan_custom_menu.addAction(action)
 
         self.hide_show_program_action = QAction('Hide', tray_menu)
         self.hide_show_program_action.triggered.connect(self.hide_show_action_handler)
@@ -740,7 +745,7 @@ class MainWindow(QMainWindow):
 
         tray_menu.addActions(fan_info_actions)
         tray_menu.addSeparator()
-        tray_menu.addMenu(fan_custom_menu)
+        tray_menu.addMenu(self.fan_custom_menu)
         tray_menu.addActions(fan_control_actions)
         tray_menu.addSeparator()
         tray_menu.addActions(program_actions)
@@ -784,8 +789,11 @@ class MainWindow(QMainWindow):
         self.set_mode(mode)
         if mode == 'Auto':
             self.apply_auto_fan_speeds()
+            fan_custom_title = 'Fan Custom'
         else:
             self.set_custom_fan_speeds_direct(percent)
+            fan_custom_title = f'Fan Custom ({percent}%)'
+        self.fan_custom_menu.setTitle(fan_custom_title)
 
     def hide_show_action_handler(self):
         if self.isVisible():
