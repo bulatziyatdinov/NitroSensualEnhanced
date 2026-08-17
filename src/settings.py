@@ -19,6 +19,7 @@ DEFAULT_CONFIG = {
     'mode': 'Custom',
     'custom_cpu': 50,
     'custom_gpu': 50,
+    'tray_fan_custom_percent_values': [10, 20, 30, 50, 80],
 }
 
 SYSTEM_HEALTH_INDEXES = {

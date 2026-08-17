@@ -721,7 +721,7 @@ class MainWindow(QMainWindow):
 
         self.fan_custom_menu = QMenu('Fan Custom', tray_menu)
 
-        percent_values: list[int] = [10, 20, 30, 50, 80]
+        percent_values: list[int] = self.config['tray_fan_custom_percent_values']
         for p in percent_values:
             action = QAction(f'{p}%', self.fan_custom_menu)
             action.setCheckable(True)

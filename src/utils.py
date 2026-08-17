@@ -11,7 +11,7 @@ import win32file
 from settings import DEFAULT_CONFIG, DEFAULT_CONFIG_FILENAME, SYSTEM_HEALTH_INDEXES
 
 
-# That is for pyinstaller paths
+# This function is for pyinstaller paths
 def get_app_dir() -> str:
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
@@ -24,7 +24,7 @@ def load_config(filepath: str = DEFAULT_CONFIG_FILENAME) -> dict:
         save_config(DEFAULT_CONFIG)
         return DEFAULT_CONFIG.copy()
     try:
-        with open(filepath, "r") as f:
+        with open(filepath, 'r') as f:
             data = json.load(f)
         for k, v in DEFAULT_CONFIG.items():
             if k not in data:
@@ -37,16 +37,16 @@ def load_config(filepath: str = DEFAULT_CONFIG_FILENAME) -> dict:
 
 def save_config(config: dict, filepath: str = DEFAULT_CONFIG_FILENAME) -> None:
     try:
-        with open(filepath, "w") as f:
+        with open(filepath, 'w') as f:
             json.dump(config, f, indent=2)
     except Exception as e:
-        print("Failed to save config:", e)
+        print('Failed to save config:', e)
 
 
 # Helper to read current fan percentage from registry
 def read_fan_speed(fan_type: str) -> int:
-    key_path = r"SOFTWARE\\OEM\\NitroSense\\FanControl"
-    value_name = "CPUFanPercentage" if fan_type == "cpu" else "GPU1FanPercentage"
+    key_path = r'SOFTWARE\\OEM\\NitroSense\\FanControl'
+    value_name = 'CPUFanPercentage' if fan_type == 'cpu' else 'GPU1FanPercentage'
     try:
         with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path, 0,
                             winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
@@ -58,8 +58,8 @@ def read_fan_speed(fan_type: str) -> int:
 
 # Helper to write fan percentage to registry
 def write_fan_speed(fan_type: str, percent: int) -> None:
-    key_path = r"SOFTWARE\\OEM\\NitroSense\\FanControl"
-    value_name = "CPUFanPercentage" if fan_type == "cpu" else "GPU1FanPercentage"
+    key_path = r'SOFTWARE\\OEM\\NitroSense\\FanControl'
+    value_name = 'CPUFanPercentage' if fan_type == 'cpu' else 'GPU1FanPercentage'
     with winreg.CreateKeyEx(winreg.HKEY_LOCAL_MACHINE, key_path, 0,
                             winreg.KEY_SET_VALUE | winreg.KEY_WOW64_64KEY) as key:
         winreg.SetValueEx(key, value_name, 0, winreg.REG_DWORD, percent)
@@ -67,12 +67,12 @@ def write_fan_speed(fan_type: str, percent: int) -> None:
 
 # Helper to apply fan speed via named pipe
 def apply_fan_speed(fan_type: str, percent: int) -> tuple[bool, str]:
-    fan_group_type = 1 if fan_type == "cpu" else 4
+    fan_group_type = 1 if fan_type == 'cpu' else 4
     data = (percent << 8) | fan_group_type
-    packet = struct.pack("<HBIQ", 16, 1, 8, data)
+    packet = struct.pack('<HBIQ', 16, 1, 8, data)
     try:
         handle = win32file.CreateFile(
-            r"\\.\pipe\PredatorSense_service_namedpipe",
+            r'\\.\pipe\PredatorSense_service_namedpipe',
             win32file.GENERIC_READ | win32file.GENERIC_WRITE,
             0,
             None,
@@ -90,10 +90,10 @@ def apply_fan_speed(fan_type: str, percent: int) -> tuple[bool, str]:
 
 def send_command_by_named_pipe(pipe, cmd_code: int, args: list) -> None:
     message = bytearray()
-    message += struct.pack("<H", cmd_code)
-    message += struct.pack("<B", len(args))
+    message += struct.pack('<H', cmd_code)
+    message += struct.pack('<B', len(args))
     for arg in args:
-        message += struct.pack("<I", len(arg))
+        message += struct.pack('<I', len(arg))
         message += arg
     win32file.WriteFile(pipe, message)
     win32file.FlushFileBuffers(pipe)
@@ -114,16 +114,16 @@ def get_acer_gaming_system_info(index: int, raw_result: bool = False) -> int | N
             'to look for valid options.'
         )
     input_code = 1 | (index << 8)
-    arg = struct.pack("<I", input_code)
+    arg = struct.pack('<I', input_code)
     try:
         pipe = win32file.CreateFile(
-            r"\\.\pipe\PredatorSense_service_namedpipe",
+            r'\\.\pipe\PredatorSense_service_namedpipe',
             win32file.GENERIC_READ | win32file.GENERIC_WRITE,
             0, None, win32file.OPEN_EXISTING, 0, None
         )
         send_command_by_named_pipe(pipe, 13, [arg])
         _, raw = win32file.ReadFile(pipe, 13)
-        result = struct.unpack_from("<Q", raw, 5)[0]
+        result = struct.unpack_from('<Q', raw, 5)[0]
         win32file.CloseHandle(pipe)
         if raw_result:
             return result
@@ -142,12 +142,13 @@ def get_cpu_gpu_temp_and_rpm() -> tuple[int, int, int, int]:
 
 
 # Functions from original code that are not used
+#
 # def unblock_file_if_needed(filepath):
 #     # Unblock file if it has a zone identifier (Windows only)
 #     if os.name == 'nt' and os.path.exists(filepath):
-#         ads = filepath + ":Zone.Identifier"
+#         ads = filepath + ':Zone.Identifier'
 #         if os.path.exists(ads):
 #             try:
 #                 os.remove(ads)
 #             except Exception as e:
-#                 print(f"Could not remove Zone.Identifier: {e}")
+#                 print(f'Could not remove Zone.Identifier: {e}')
