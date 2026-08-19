@@ -776,7 +776,7 @@ class MainWindow(QMainWindow):
         if os.path.exists(file_path):
             QProcess.startDetached('notepad.exe', [file_path])
         else:
-            QMessageBox.warning(self, "Error", "There is no file config.json")
+            QMessageBox.warning(self, 'Error', 'There is no file config.json')
 
     def _show_about(self):
         dialog = AboutDialog(self)
@@ -794,12 +794,14 @@ class MainWindow(QMainWindow):
         self.fan_custom_menu.setTitle(fan_custom_title)
 
     def hide_show_action_handler(self):
-        if self.isVisible():
+        if self.isVisible() and not self.isMinimized():
             self.hide_show_program_action.setText('Show')
             self.hide()
         else:
             self.hide_show_program_action.setText('Hide')
-            self.show()
+            self.showNormal()
+            self.raise_()
+            self.activateWindow()
 
     def tray_activation_handler(self, reason):
         if reason == QSystemTrayIcon.DoubleClick:
