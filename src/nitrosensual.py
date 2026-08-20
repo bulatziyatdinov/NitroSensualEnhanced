@@ -1,4 +1,5 @@
 import os
+from typing import Callable, Literal
 
 from PyQt5.QtCore import QPoint, QProcess, QRect, QSize, Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QColor, QIcon, QPainter
@@ -38,14 +39,15 @@ CONFIG_FILE = os.path.join(get_app_dir(), DEFAULT_CONFIG_FILENAME)
 
 
 class FanControlWidget(QWidget):
-    def __init__(self, fan_type: str, refresh_callback=None):
+    def __init__(self, fan_type: Literal['cpu', 'gpu'],
+                 refresh_callback: Callable | None = None):
         super().__init__()
         self.fan_type = fan_type
         self.refresh_callback = refresh_callback
         self.init_ui()
         self.last_custom_value = self.slider.value()  # Track last custom value
 
-    def init_ui(self):
+    def init_ui(self) -> None:
         layout = QHBoxLayout()
         self.label = QLabel(f"{self.fan_type.upper()} Fan Speed:")
         self.slider = QSlider(Qt.Horizontal)
@@ -61,7 +63,7 @@ class FanControlWidget(QWidget):
         layout.addWidget(self.apply_btn)
         self.setLayout(layout)
 
-    def on_slider_changed(self, value: int):
+    def on_slider_changed(self, value: int) -> None:
         self.value_label.setText(f"{value}%")
         self.last_custom_value = value  # Update last custom value
         # Only update in-memory config, do NOT save to disk here!
@@ -74,19 +76,19 @@ class FanControlWidget(QWidget):
             elif self.fan_type == "gpu":
                 main.config["custom_gpu"] = value
 
-    def set_custom_mode(self, enabled: bool):
+    def set_custom_mode(self, enabled: bool) -> None:
         self.slider.setEnabled(enabled)
         self.apply_btn.setEnabled(enabled)
         if enabled:
             # Restore last custom value to slider
             self.slider.setValue(self.last_custom_value)
 
-    def set_fan_speed(self, percent: int):
+    def set_fan_speed(self, percent: int) -> None:
         self.slider.setValue(percent)
         self.apply_fan_speed()
         self.last_custom_value = percent  # Update last custom value
 
-    def apply_fan_speed(self):
+    def apply_fan_speed(self) -> None:
         percent = self.slider.value()
         try:
             write_fan_speed(self.fan_type, percent)
@@ -106,7 +108,7 @@ class FanControlWidget(QWidget):
         except Exception:
             pass
 
-    def apply_fan_speed_direct(self, percent):
+    def apply_fan_speed_direct(self, percent: int) -> None:
         """Set fan speed without changing slider or last_custom_value."""
         try:
             write_fan_speed(self.fan_type, percent)
@@ -121,7 +123,7 @@ class RangeSlider(QSlider):
     rangeChanged = pyqtSignal(int, int)
     PADDING = 32  # pixels on each side
 
-    def __init__(self, orientation=Qt.Horizontal, parent=None):
+    def __init__(self, orientation=Qt.Horizontal, parent: QWidget | None = None):
         super().__init__(orientation, parent)
         self._low = self.minimum()
         self._high = self.maximum()
@@ -131,30 +133,31 @@ class RangeSlider(QSlider):
         self.setMinimumHeight(32)
         self.setMaximumHeight(32)
 
-    def low(self):
+    def low(self) -> int:
         return self._low
 
-    def high(self):
+    def high(self) -> int:
         return self._high
 
-    def setLow(self, value):
+    def setLow(self, value: int) -> None:
         value = min(max(self.minimum(), value), self._high)
         if value != self._low:
             self._low = value
             self.update()
             self.rangeChanged.emit(self._low, self._high)
 
-    def setHigh(self, value):
+    def setHigh(self, value: int) -> None:
         value = max(min(self.maximum(), value), self._low)
         if value != self._high:
             self._high = value
             self.update()
             self.rangeChanged.emit(self._low, self._high)
 
-    def setRange(self, low, high):
+    def setRange(self, low: int, high: int) -> None:
         self.setLow(low)
         self.setHigh(high)
 
+    # TODO: needs type hints
     def mousePressEvent(self, event):
         if self.orientation() == Qt.Horizontal:
             pos = event.pos().x()
@@ -172,7 +175,6 @@ class RangeSlider(QSlider):
     def mouseMoveEvent(self, event):
         if self._drag is None:
             return
-        pos = event.pos()
         if self.orientation() == Qt.Horizontal:
             pos = event.pos().x()
         else:
@@ -185,18 +187,6 @@ class RangeSlider(QSlider):
 
     def mouseReleaseEvent(self, event):
         self._drag = None
-
-    def _value_to_pos(self, value):
-        minv, maxv = self.minimum(), self.maximum()
-        w = self.width() - 2 * self.PADDING
-        return int(self.PADDING + (value - minv) / (maxv - minv) * (w - 1))
-
-    def _pos_to_value(self, pos):
-        minv, maxv = self.minimum(), self.maximum()
-        w = self.width() - 2 * self.PADDING
-        pos = max(self.PADDING, min(pos, self.width() - self.PADDING))
-        value = int((pos - self.PADDING) / (w - 1) * (maxv - minv) + minv)
-        return min(max(value, minv), maxv)
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -219,12 +209,31 @@ class RangeSlider(QSlider):
             painter.setBrush(color)
             painter.drawEllipse(QPoint(pos, self.height() // 2), 8, 8)
 
-    def sizeHint(self):
+    def _value_to_pos(self, value: int) -> int:
+        minv, maxv = self.minimum(), self.maximum()
+        w = self.width() - 2 * self.PADDING
+        return int(self.PADDING + (value - minv) / (maxv - minv) * (w - 1))
+
+    def _pos_to_value(self, pos: int) -> int:
+        minv, maxv = self.minimum(), self.maximum()
+        w = self.width() - 2 * self.PADDING
+        pos = max(self.PADDING, min(pos, self.width() - self.PADDING))
+        value = int((pos - self.PADDING) / (w - 1) * (maxv - minv) + minv)
+        return min(max(value, minv), maxv)
+
+
+    def sizeHint(self) -> QSize:
         return QSize(200, 32)
 
 
 class RangeSliderWidget(QWidget):
-    def __init__(self, min_temp, max_temp, speed, min_limit, max_limit, parent=None):
+    def __init__(self,
+                min_temp: int,
+                max_temp: int,
+                speed: int,
+                min_limit: int,
+                max_limit: int,
+                parent: QWidget | None = None):
         super().__init__(parent)
         self.min_limit = min_limit
         self.max_limit = max_limit
@@ -258,13 +267,13 @@ class RangeSliderWidget(QWidget):
         layout.addWidget(self.speed_spin)
         self.setLayout(layout)
 
-    def on_range_changed(self):
+    def on_range_changed(self) -> None:
         self.label.setText(self._label_text())
 
-    def _label_text(self):
+    def _label_text(self) -> str:
         return f"{self.min_slider.low()}-{self.max_slider.high()}°C"
 
-    def get_values(self):
+    def get_values(self) -> dict[str, int]:
         return {
             "min": self.min_slider.low(),
             "max": self.max_slider.high(),
@@ -283,21 +292,23 @@ class TempWorker(QThread):
         self.poll_interval = poll_interval
         self._running = True
 
-    def run(self):
-        import time
+    def run(self) -> None:
+        from time import sleep
         while self._running:
             cpu_temp, cpu_rpm, gpu_temp, gpu_rpm = get_cpu_gpu_temp_and_rpm()
             self.temps_updated.emit(cpu_temp, cpu_rpm, gpu_temp, gpu_rpm)
-            time.sleep(self.poll_interval)
+            sleep(self.poll_interval)
 
-    def stop(self):
+    def stop(self) -> None:
         self._running = False
 
 
 class AutoFanConfigDialog(QDialog):
     configChanged = pyqtSignal(list)
 
-    def __init__(self, parent=None, config=None):
+    def __init__(self,
+                 parent: QWidget | None = None,
+                 config: dict | None = None):
         super().__init__(parent)
         self.setWindowTitle("Auto Mode Fan Configuration")
         self.setModal(True)
@@ -349,7 +360,10 @@ class AutoFanConfigDialog(QDialog):
         btn_layout.addWidget(cancel_btn)
         self.layout.addLayout(btn_layout)
 
-    def add_row(self, minv=None, maxv=None, speed=50):
+    def add_row(self,
+                minv: int | None = None,
+                maxv: int | None = None,
+                speed: int =50) -> None:
         row_widget = QWidget()
         row_widget.setMinimumHeight(48)
         row_widget.setMaximumHeight(48)
@@ -383,7 +397,7 @@ class AutoFanConfigDialog(QDialog):
         max_label.setFixedWidth(56)
         max_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
-        def update_labels():
+        def update_labels() -> None:
             idx = None
             for i, row in enumerate(self.rows):
                 if row["slider"] is slider:
@@ -411,12 +425,12 @@ class AutoFanConfigDialog(QDialog):
         remove_btn.setFocusPolicy(Qt.NoFocus)  # Add this line
         remove_btn.setFixedWidth(60)
 
-        def update_remove_buttons():
+        def update_remove_buttons() -> None:
             enable = len(self.rows) > 1
             for row in self.rows:
                 row["remove_btn"].setEnabled(enable)
 
-        def remove():
+        def remove() -> None:
             self.rules_layout.removeWidget(row_widget)
             row_widget.setParent(None)
             row_widget.deleteLater()
@@ -451,7 +465,7 @@ class AutoFanConfigDialog(QDialog):
             "remove_btn": remove_btn,
         })
 
-        def on_range_changed(low, high, slider=slider):
+        def on_range_changed(low: int, high: int, slider: RangeSlider = slider) -> None:
             for i, row in enumerate(self.rows):
                 if row["slider"] is slider:
                     self.push_neighbors(i, low, high)
@@ -469,7 +483,7 @@ class AutoFanConfigDialog(QDialog):
 
         update_remove_buttons()
 
-    def renormalize_ranges(self):
+    def renormalize_ranges(self) -> None:
         """Ensure all ranges are contiguous, min=0, max=100 and at least 1 unit wide."""
         n = len(self.rows)
         if n == 0:
@@ -509,7 +523,7 @@ class AutoFanConfigDialog(QDialog):
             min_val = max_val + 1
         self.emit_config()
 
-    def push_neighbors(self, idx, low, high):
+    def push_neighbors(self, idx: int, low: int, high: int) -> None:
         # Enforce: first min is 0, last max is 100, and min < max for all, and no gaps,
         # and at least 1 unit wide
         # Push right neighbor if overlap or gap
@@ -551,7 +565,7 @@ class AutoFanConfigDialog(QDialog):
                 if self.rows[idx]["slider"].low() != 0:
                     self.rows[idx]["slider"].setLow(0)
 
-    def get_config(self):
+    def get_config(self) -> dict[str, int]:
         config = []
         for row in self.rows:
             config.append({
@@ -561,12 +575,12 @@ class AutoFanConfigDialog(QDialog):
             })
         return config
 
-    def emit_config(self):
+    def emit_config(self) -> None:
         self.configChanged.emit(self.get_config())
 
 
 class AboutDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setWindowTitle("About")
         self.setFixedSize(400, 180)
@@ -591,6 +605,7 @@ class AboutDialog(QDialog):
         self.setLayout(layout)
 
 
+# TODO: add and check type hints
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
