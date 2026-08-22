@@ -308,7 +308,7 @@ class AutoFanConfigDialog(QDialog):
 
     def __init__(self,
                  parent: QWidget | None = None,
-                 config: dict | None = None):
+                 config: list[dict] | None = None):
         super().__init__(parent)
         self.setWindowTitle("Auto Mode Fan Configuration")
         self.setModal(True)
@@ -565,7 +565,7 @@ class AutoFanConfigDialog(QDialog):
                 if self.rows[idx]["slider"].low() != 0:
                     self.rows[idx]["slider"].setLow(0)
 
-    def get_config(self) -> dict[str, int]:
+    def get_config(self) -> list[dict[str, int]]:
         config = []
         for row in self.rows:
             config.append({
@@ -627,7 +627,7 @@ class MainWindow(QMainWindow):
         self.on_mode_changed(self.current_mode)
         self.refresh_speeds()
 
-    def init_ui(self):
+    def init_ui(self) -> None:
         self.setWindowTitle(APP_TITLE)
 
         central_widget = QWidget()
@@ -697,7 +697,7 @@ class MainWindow(QMainWindow):
         self.init_tray()
         self.init_menubar()
 
-    def init_tray(self):
+    def init_tray(self) -> None:
         self.tray = QSystemTrayIcon(self)
         self.tray.setToolTip("NitroSensualEnhanced")
         self.tray.setVisible(True)
@@ -765,7 +765,7 @@ class MainWindow(QMainWindow):
 
         self.tray.setContextMenu(tray_menu)
 
-    def init_menubar(self):
+    def init_menubar(self) -> None:
         self.menubar = self.menuBar()
 
         open_config_menu_action = QAction('&Open Config File', self.menubar)
@@ -786,19 +786,19 @@ class MainWindow(QMainWindow):
         self.menubar.addAction(hide_menu_action)
         self.menubar.addAction(exit_menu_action)
 
-    def _open_config_file(self):
+    def _open_config_file(self) -> None:
         file_path = os.path.abspath(CONFIG_FILE)
         if os.path.exists(file_path):
             QProcess.startDetached('notepad.exe', [file_path])
         else:
             QMessageBox.warning(self, 'Error', 'There is no file config.json')
 
-    def _show_about(self):
+    def _show_about(self) -> None:
         dialog = AboutDialog(self)
         dialog.exec_()
 
     # TODO: this thing needs to be smarter
-    def fan_action_handler(self, mode: str = 'Custom', percent: int = 50):
+    def fan_action_handler(self, mode: str = 'Custom', percent: int = 50) -> None:
         self.set_mode(mode)
         if mode == 'Auto':
             self.apply_auto_fan_speeds()
@@ -808,7 +808,7 @@ class MainWindow(QMainWindow):
             fan_custom_title = f'Fan Custom ({percent}%)'
         self.fan_custom_menu.setTitle(fan_custom_title)
 
-    def hide_show_action_handler(self):
+    def hide_show_action_handler(self) -> None:
         if self.isVisible() and not self.isMinimized():
             self.hide_show_program_action.setText('Show')
             self.hide()
@@ -818,7 +818,7 @@ class MainWindow(QMainWindow):
             self.raise_()
             self.activateWindow()
 
-    def tray_activation_handler(self, reason):
+    def tray_activation_handler(self, reason) -> None:
         if reason == QSystemTrayIcon.DoubleClick:
             self.hide_show_action_handler()
 
@@ -832,12 +832,13 @@ class MainWindow(QMainWindow):
             raise ValueError(
                 'Mode can be int or str value. 0 - "Custom", 1 - "Max", 2 - "Auto"')
 
-    def start_temp_worker(self):
+    def start_temp_worker(self) -> None:
         self.temp_worker = TempWorker()
         self.temp_worker.temps_updated.connect(self.on_temps_updated)
         self.temp_worker.start()
 
-    def on_temps_updated(self, cpu_temp, cpu_rpm, gpu_temp, gpu_rpm):
+    def on_temps_updated(self, cpu_temp: int, cpu_rpm: int,
+                         gpu_temp: int, gpu_rpm: int) -> None:
         self.cpu_temp = cpu_temp
         self.cpu_rpm = cpu_rpm
         self.gpu_temp = gpu_temp
@@ -849,7 +850,7 @@ class MainWindow(QMainWindow):
         if getattr(self, "current_mode", None) == "Auto":
             self.apply_auto_fan_speeds()
 
-    def update_temp_labels(self):
+    def update_temp_labels(self) -> None:
         cpu_temp_text = (f"CPU Temp: "
                          f"{self.cpu_temp if self.cpu_temp is not None else '?'}°C")
         gpu_temp_text = (f"GPU Temp: "
@@ -861,7 +862,7 @@ class MainWindow(QMainWindow):
         self.gpu_info_action.setText(gpu_temp_text)
 
     # TODO: The read_fan_speed function needs to be moved to the TempWorker.
-    def refresh_speeds(self):
+    def refresh_speeds(self) -> None:
         self.cpu_percent = read_fan_speed("cpu")
         self.gpu_percent = read_fan_speed("gpu")
         cpu_rpm = self.cpu_rpm if self.cpu_rpm is not None else '?'
@@ -871,7 +872,7 @@ class MainWindow(QMainWindow):
         self.cpu_speed_label.setText(cpu_text)
         self.gpu_speed_label.setText(gpu_text)
 
-    def on_mode_changed(self, mode):
+    def on_mode_changed(self, mode: str) -> None:
         self.current_mode = mode  # Track current mode
         self.config["mode"] = mode
         # Save custom values if in custom mode
@@ -896,7 +897,7 @@ class MainWindow(QMainWindow):
             self.graph_btn.setDisabled(False)
         save_config(self.config)
 
-    def open_auto_config(self):
+    def open_auto_config(self) -> None:
         # Backup current config for possible revert
         backup_config = self.auto_fan_config.copy()
         dialog = AutoFanConfigDialog(self, [dict(x) for x in self.auto_fan_config])
@@ -911,12 +912,12 @@ class MainWindow(QMainWindow):
             if self.current_mode == "Auto":
                 self.apply_auto_fan_speeds()
 
-    def on_auto_config_live_update(self, config):
+    def on_auto_config_live_update(self, config: dict) -> None:
         self.auto_fan_config = config
         if self.current_mode == "Auto":
             self.apply_auto_fan_speeds()
 
-    def closeEvent(self, event):
+    def closeEvent(self, event) -> None:
         # Reload config from disk to discard unsaved in-memory changes
         self.config = load_config(CONFIG_FILE)
         self.auto_fan_config = self.config["auto_fan_config"]
@@ -933,7 +934,7 @@ class MainWindow(QMainWindow):
         self.gpu_fan_widget.slider.setValue(self.config.get("custom_gpu", 50))
         event.accept()
 
-    def get_auto_fan_speed(self, temp, config=None):
+    def get_auto_fan_speed(self, temp: int, config: list[dict] | None = None) -> int:
         if temp is None:
             return 50  # fallback if temp is not available
         if config is None:
@@ -953,7 +954,7 @@ class MainWindow(QMainWindow):
         # Fallback (should never happen)
         return 50
 
-    def apply_auto_fan_speeds(self):
+    def apply_auto_fan_speeds(self) -> None:
         # Use the config for both CPU and GPU, or you can split if you want
         cpu_speed = self.get_auto_fan_speed(self.cpu_temp, self.auto_fan_config)
         gpu_speed = self.get_auto_fan_speed(self.gpu_temp, self.auto_fan_config)
